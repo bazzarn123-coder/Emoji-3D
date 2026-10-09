@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Emoji   3D 👑✨ - Spatial Logic Puzzle Game</title>
+    
+    <!-- Browser Address Bar Icon (Favicon) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👑</text></svg>">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        emojiPurple: '#7209b7',
+                        emojiPink: '#f72585',
+                        emojiBlue: '#4cc9f0',
+                        emojiDark: '#0f172a'
+                    },
+                    fontFamily: {
+                        fredoka: ['Fredoka', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background: radial-gradient(circle at 50% 15%, #2a085c 0%, #13032b 50%, #080114 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism panels */
+        .glass-panel {
+            background: rgba(30, 27, 75, 0.78);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .glass-btn:active {
+            transform: scale(0.93);
+        }
+
+        /* Prevent scrolling during touch slide drag on board */
+        #boardGrid {
+            touch-action: none;
+        }
+
+        /* 3D Isometric Board Container */
+        .board-viewport {
+            perspective: 1200px;
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .board-grid-3d {
+            transform-style: preserve-3d;
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .board-viewport.iso-mode .board-grid-3d {
+            transform: rotateX(36deg) rotateZ(-14deg) scale(0.92);
+        }
+
+        /* Extruded 3D Tile Styling */
+        .emoji-tile {
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s;
+            box-shadow: 0 6px 0 var(--tile-shadow-color, #1e293b), 0 8px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .board-viewport.iso-mode .emoji-tile {
+            box-shadow: 0 10px 0 var(--tile-shadow-color, #0f172a), 0 14px 22px rgba(0, 0, 0, 0.4);
+        }
+
+        .emoji-tile:hover {
+            transform: translateY(-2px) scale(1.02);
+        }
+
+        .emoji-tile.drag-active {
+            transform: translateY(3px) scale(0.96) !important;
+            filter: brightness(1.25);
+        }
+
+        /* Conflict error wobble */
+        .emoji-tile.conflict {
+            animation: conflictWobble 0.5s infinite alternate ease-in-out;
+            box-shadow: 0 0 20px #f72585, 0 8px 0 #b5179e !important;
+            border-color: #f72585 !important;
+            z-index: 10;
+        }
+
+        @keyframes conflictWobble {
+            0% { transform: translateY(0) rotate(0deg); background-color: #ff4d6d; }
+            50% { transform: translateY(-3px) rotate(-4deg); }
+            100% { transform: translateY(3px) rotate(4deg); background-color: #c77dff; }
+        }
+
+        /* Blocked / Dead-End Region Highlight */
+        .emoji-tile.blocked-region {
+            animation: blockedPulse 1.2s infinite alternate ease-in-out;
+            border: 2.5px dashed #f72585 !important;
+        }
+
+        @keyframes blockedPulse {
+            0% { filter: brightness(0.7) saturate(1.2); box-shadow: inset 0 0 15px rgba(247, 37, 133, 0.6); }
+            100% { filter: brightness(1.1) saturate(1.8); box-shadow: inset 0 0 25px rgba(247, 37, 133, 0.9); }
+        }
+
+        /* 1-Cell Giveaway Region Highlight */
+        .emoji-tile.giveaway-region {
+            animation: giveawayPulse 1.5s infinite alternate ease-in-out;
+            border: 3px solid #ffb703 !important;
+            z-index: 5;
+        }
+
+        @keyframes giveawayPulse {
+            0% { box-shadow: 0 0 12px #ffb703, inset 0 0 8px #ffb703; }
+            100% { box-shadow: 0 0 24px #ffb703, inset 0 0 18px #ffb703; }
+        }
+
+        /* Entry Pop-in Animation */
+        @keyframes popIn {
+            0% { transform: scale(0.1) rotate(-20deg); opacity: 0; }
+            70% { transform: scale(1.25) rotate(10deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        .pop-in {
+            animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* Mascot Bounce Animation */
+        @keyframes floatBounce {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-7px) rotate(3deg); }
+        }
+
+        .animate-float {
+            animation: floatBounce 3s infinite ease-in-out;
+        }
+
+        /* Distinct High-Contrast 9 Region Color Palettes */
+        .region-0 { background: linear-gradient(135deg, #ff8c00, #ff4500); --tile-shadow-color: #992600; } /* Bright Orange */
+        .region-1 { background: linear-gradient(135deg, #8a2be2, #4b0082); --tile-shadow-color: #2e004f; } /* Royal Purple */
+        .region-2 { background: linear-gradient(135deg, #ff1493, #c71585); --tile-shadow-color: #7d0a52; } /* Electric Magenta */
+        .region-3 { background: linear-gradient(135deg, #1e90ff, #00008b); --tile-shadow-color: #000057; } /* Cobalt Blue */
+        .region-4 { background: linear-gradient(135deg, #00e676, #008000); --tile-shadow-color: #004d00; } /* Emerald Green */
+        .region-5 { background: linear-gradient(135deg, #ffd700, #b8860b); --tile-shadow-color: #6e5000; } /* Golden Yellow */
+        .region-6 { background: linear-gradient(135deg, #00ffff, #008b8b); --tile-shadow-color: #005252; } /* Neon Cyan */
+        .region-7 { background: linear-gradient(135deg, #ff1a1a, #990000); --tile-shadow-color: #590000; } /* Crimson Red */
+        .region-8 { background: linear-gradient(135deg, #d8bfd8, #6a0d91); --tile-shadow-color: #3b0054; } /* Violet Indigo */
+
+        /* Speech bubble pointer */
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 20px;
+            border-width: 8px 8px 0;
+            border-style: solid;
+            border-color: rgba(30, 27, 75, 0.85) transparent;
+            display: block;
+            width: 0;
+        }
+
+        /* Particle Overlay Canvas */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<body class="flex flex-col items-center justify-between min-h-screen p-2 sm:p-4 text-slate-100 select-none">
+
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- Navigation Header -->
+    <header class="w-full max-w-2xl glass-panel rounded-3xl p-3 mb-2 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div id="activeThemeIcon" class="w-11 h-11 bg-gradient-to-tr from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center text-2xl shadow-lg border border-white/20">
+                😎
+            </div>
+            <div>
+                <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-pink-400 to-purple-300">
+                    Emoji   3D
+                </h1>
+                <div class="flex items-center space-x-2 text-[11px] sm:text-xs font-semibold text-cyan-300">
+                    <span id="boardSizeBadge">5x5 Grid</span>
+                    <span>•</span>
+                    <span id="regionRulesBadge">5 Color Regions</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-1.5 sm:space-x-2">
+            <div class="flex items-center space-x-1 bg-amber-500/20 px-3 py-1.5 rounded-2xl border border-amber-400/40 text-amber-300 font-extrabold text-xs sm:text-sm">
+                <span>⭐</span>
+                <span id="starCounterDisplay">0</span>
+            </div>
+            
+            <button id="openShopBtn" class="glass-btn p-2.5 rounded-2xl text-cyan-300 hover:text-white" title="Emoji Locker">
+                <i class="fa-solid fa-store text-base sm:text-lg"></i>
+            </button>
+            <button id="toggle3DBtn" class="glass-btn p-2.5 rounded-2xl text-pink-400 hover:text-white" title="Toggle 3D Perspective">
+                <i id="perspectiveIcon" class="fa-solid fa-cube text-base sm:text-lg"></i>
+            </button>
+            <button id="toggleMuteBtn" class="glass-btn p-2.5 rounded-2xl text-slate-300 hover:text-white" title="Sound Effects">
+                <i id="muteIcon" class="fa-solid fa-volume-high text-base sm:text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mascot Speech Bar -->
+    <div class="w-full max-w-2xl flex items-center justify-between px-1 mb-2">
+        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 mr-2">
+            <div id="mascotAvatar" class="text-3xl sm:text-4xl animate-float cursor-pointer hover:scale-110 transition" title="Tap mascot for hints!">
+                😎
+            </div>
+            <div class="speech-bubble relative glass-panel py-2 px-3.5 rounded-2xl text-xs sm:text-sm font-semibold text-cyan-100 flex-1 shadow-md border border-cyan-500/30">
+                <span id="mascotSpeech">Look for the 1-box giveaway region! It MUST be an Emoji! 💡</span>
+            </div>
+        </div>
+
+        <button id="openLevelModalBtn" class="glass-btn px-3 py-2 rounded-2xl text-xs font-bold text-pink-300 hover:text-white flex items-center space-x-1.5 shrink-0">
+            <i class="fa-solid fa-layer-group"></i>
+            <span id="currentLevelTitle">Level 1</span>
+        </button>
+    </div>
+
+    <!-- Gameplay Stats Bar -->
+    <div class="w-full max-w-2xl glass-panel rounded-2xl px-4 py-2 mb-2 flex items-center justify-between text-xs sm:text-sm font-bold text-slate-300">
+        <div class="flex items-center space-x-1.5">
+            <i class="fa-regular fa-clock text-cyan-400"></i>
+            <span id="gameTimerDisplay">00:00</span>
+        </div>
+        <div class="flex items-center space-x-1.5">
+            <i class="fa-solid fa-crown text-amber-400"></i>
+            <span> :</span>
+            <span id="emojiPlacedDisplay" class="text-cyan-300 font-extrabold">0 / 5</span>
+        </div>
+        <div class="flex items-center space-x-1.5">
+            <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
+            <span>Errors:</span>
+            <span id="conflictCountDisplay" class="text-rose-400 font-extrabold">0</span>
+        </div>
+    </div>
+
+    <main class="w-full max-w-2xl flex-1 flex flex-col items-center justify-center relative my-auto py-1">
+        <div id="boardViewport" class="board-viewport iso-mode w-full flex items-center justify-center p-2">
+            <div id="boardGrid" class="board-grid-3d grid gap-2 p-3.5 rounded-3xl glass-panel shadow-2xl transition-all duration-300 border border-white/20">
+                <!-- Grid Tiles rendered dynamically in JS -->
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full max-w-2xl flex flex-col gap-2 mt-2">
+        <!-- Main Tool Switcher -->
+        <div class="glass-panel p-2 rounded-3xl flex items-center justify-around shadow-xl border border-white/10">
+            <button id="toolEmojiBtn" class="flex-1 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg transition">
+                <span id="selectedEmojiToolIcon" class="text-base sm:text-lg">😎</span>
+                <span>Place</span>
+            </button>
+
+            <button id="toolCrossBtn" class="flex-1 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 text-slate-300 hover:bg-white/10 transition">
+                <span class="text-base sm:text-lg text-black font-black">✖</span>
+                <span>Slide ✖</span>
+            </button>
+
+            <button id="toolEraseBtn" class="flex-1 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 text-slate-300 hover:bg-white/10 transition">
+                <span class="text-base sm:text-lg">🧹</span>
+                <span>Slide Erase</span>
+            </button>
+        </div>
+
+        <!-- Secondary Toolbar -->
+        <div class="flex items-center justify-between gap-2 px-1">
+            <button id="undoBtn" class="glass-btn flex-1 py-2.5 rounded-2xl font-bold text-xs text-cyan-300 hover:bg-cyan-500/20 flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>Undo</span>
+            </button>
+
+            <button id="redoBtn" class="glass-btn flex-1 py-2.5 rounded-2xl font-bold text-xs text-purple-300 hover:bg-purple-500/20 flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Redo</span>
+            </button>
+
+            <button id="giveawayHelperBtn" class="glass-btn flex-1 py-2.5 rounded-2xl font-bold text-xs text-amber-300 hover:bg-amber-500/20 flex items-center justify-center space-x-1" title="Find 1-Box Giveaway">
+                <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                <span>Where to Start?</span>
+            </button>
+
+            <button id="resetBtn" class="glass-btn flex-1 py-2.5 rounded-2xl font-bold text-xs text-rose-300 hover:bg-rose-500/20 flex items-center justify-center space-x-1" title="Clears board, preserves exact same level!">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span>Retry</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Level Modal -->
+    <div id="levelModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-lg rounded-3xl p-5 shadow-2xl flex flex-col max-h-[85vh] border border-purple-500/30">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">🗺️</span>
+                    <h2 class="text-lg font-bold text-cyan-200">Select Puzzle Dimension</h2>
+                </div>
+                <button id="closeLevelModalBtn" class="w-8 h-8 rounded-full bg-white/10 text-slate-300 flex items-center justify-center hover:bg-white/20">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="mb-3">
+                <div class="text-[11px] font-bold text-slate-400 mb-1.5">GRID SIZE (N x N):</div>
+                <div class="grid grid-cols-5 gap-1.5">
+                    <button class="grid-size-btn py-2 rounded-xl text-xs font-bold border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10" data-size="4">4x4</button>
+                    <button class="grid-size-btn py-2 rounded-xl text-xs font-bold border border-cyan-500/40 bg-cyan-500/20 text-cyan-300" data-size="5">5x5</button>
+                    <button class="grid-size-btn py-2 rounded-xl text-xs font-bold border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10" data-size="6">6x6</button>
+                    <button class="grid-size-btn py-2 rounded-xl text-xs font-bold border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10" data-size="7">7x7</button>
+                    <button class="grid-size-btn py-2 rounded-xl text-xs font-bold border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10" data-size="8">8x8</button>
+                </div>
+            </div>
+
+            <div id="levelGridContainer" class="grid grid-cols-3 sm:grid-cols-4 gap-2.5 overflow-y-auto p-1 flex-1 mb-3">
+                <!-- Level cards rendered dynamically -->
+            </div>
+
+            <button id="generateUniqueBtn" class="w-full py-3 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 text-white font-extrabold rounded-2xl shadow-lg hover:opacity-95 transition flex items-center justify-center space-x-2 text-sm">
+                <i class="fa-solid fa-dice"></i>
+                <span>Generate Unique Solution Puzzle</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div id="shopModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-5 shadow-2xl flex flex-col max-h-[85vh] border border-pink-500/30">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">🛍️</span>
+                    <h2 class="text-lg font-bold text-pink-300">Emoji Locker</h2>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-extrabold bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full border border-amber-400/40">⭐ <span id="shopStarCounter">0</span></span>
+                    <button id="closeShopModalBtn" class="w-8 h-8 rounded-full bg-white/10 text-slate-300 flex items-center justify-center hover:bg-white/20">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="shopEmojiGrid" class="grid grid-cols-2 gap-2.5 overflow-y-auto p-1 flex-1">
+                <!-- Shop items rendered dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Victory Modal -->
+    <div id="victoryModal" class="fixed inset-0 bg-black/85 backdrop-blur-lg z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center flex flex-col items-center border border-cyan-400/40">
+            <div class="text-6xl mb-2 animate-bounce">👑🎉</div>
+            <h2 class="text-2xl font-extrabold text-cyan-200 mb-1">Puzzle Solved!</h2>
+            <p class="text-xs text-cyan-400 mb-4">Strict unique solution satisfied!</p>
+
+            <div class="flex items-center justify-center space-x-2 text-4xl text-amber-400 mb-4">
+                <span>⭐</span><span>⭐</span><span>⭐</span>
+            </div>
+
+            <div class="bg-white/5 w-full rounded-2xl p-3 mb-5 border border-white/10 flex justify-around text-xs font-bold text-slate-300">
+                <div>
+                    <span class="text-slate-500 block">Time</span>
+                    <span id="vicTimeText" class="text-cyan-300 font-extrabold">01:12</span>
+                </div>
+                <div>
+                    <span class="text-slate-500 block">Reward</span>
+                    <span class="text-amber-400 font-extrabold">+3 ⭐</span>
+                </div>
+            </div>
+
+            <div class="flex w-full gap-2">
+                <button id="vicReplayBtn" class="glass-btn flex-1 py-3 rounded-2xl font-bold text-slate-200 hover:bg-white/20">
+                    Replay
+                </button>
+                <button id="vicNextBtn" class="flex-1 py-3 bg-gradient-to-r from-cyan-500 via-pink-500 to-purple-600 text-white font-extrabold rounded-2xl shadow-lg hover:opacity-95">
+                    Next Level
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameState = {
+            N: 5,                  // Grid dimension (4 to 8)
+            levelIndex: 0,
+            currentLevel: null,    // Holds { N, regions, solution, giveawayPos }
+            board: [],             // Cell state: { value: 'EMPTY'|'EMOJI'|'CROSS', isConflict: false, isBlocked: false }
+            activeTool: 'emoji',   // 'emoji', 'cross', 'erase'
+            selectedEmoji: '😎',
+            unlockedEmojis: ['😎', '👑', '🤩'],
+            stars: 0,
+            timerSeconds: 0,
+            timerInterval: null,
+            is3D: true,
+            history: [],
+            redoStack: [],
+            isMuted: false,
+            // Touch & Slide Drag State
+            isDragging: false,
+            dragLastCellIdx: null,
+            dragTargetValue: 'CROSS'
+        };
+
+        const EMOJI_CATALOG = [
+            { emoji: '😎', name: 'Cool Sunglasses', price: 0 },
+            { emoji: '👑', name: 'Royal Crown', price: 0 },
+            { emoji: '🤩', name: 'Superstar', price: 0 },
+            { emoji: '🥳', name: 'Party Face', price: 5 },
+            { emoji: '🤠', name: 'Cowboy', price: 10 },
+            { emoji: '👽', name: 'Cosmic Alien', price: 15 },
+            { emoji: '🤖', name: 'Cyber Robot', price: 20 },
+            { emoji: '🐱', name: 'Kitty  ', price: 25 }
+        ];
+
+        // Web Audio Synthesizer
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function playSound(type) {
+            if (gameState.isMuted) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'pop') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(450, now);
+                osc.frequency.exponentialRampToValueAtTime(950, now + 0.07);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.07);
+            } else if (type === 'cross') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(320, now);
+                osc.frequency.linearRampToValueAtTime(160, now + 0.05);
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'error') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(150, now + 0.1);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.22);
+            } else if (type === 'win') {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((f, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(f, now + idx * 0.1);
+                    gain.gain.setValueAtTime(0.25, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.35);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.35);
+                });
+            }
+        }
+
+        /**
+         * Fast Backtracking Solver
+         * Counts valid   assignments given a region partition and 8-neighbor touch rules.
+         * Stops counting when solutionCount >= 2 for speed.
+         */
+        function countSolutions(regions, N) {
+            let solutionCount = 0;
+            const colsUsed = new Array(N).fill(false);
+            const regionsUsed = new Array(N).fill(false);
+            const  Cols = new Array(N).fill(-1);
+
+            function solve(row) {
+                if (row === N) {
+                    solutionCount++;
+                    return;
+                }
+
+                for (let c = 0; c < N; c++) {
+                    if (colsUsed[c]) continue;
+                    
+                    const reg = regions[row][c];
+                    if (regionsUsed[reg]) continue;
+
+                    // 8-neighbor touch restriction (king move check with adjacent row)
+                    if (row > 0 && Math.abs(c -  Cols[row - 1]) <= 1) {
+                        continue;
+                    }
+
+                    // Place  
+                    colsUsed[c] = true;
+                    regionsUsed[reg] = true;
+                     Cols[row] = c;
+
+                    solve(row + 1);
+
+                    // Backtrack
+                    colsUsed[c] = false;
+                    regionsUsed[reg] = false;
+                     Cols[row] = -1;
+
+                    if (solutionCount >= 2) return; // Early exit if not unique
+                }
+            }
+
+            solve(0);
+            return solutionCount;
+        }
+
+        function findRandomNonTouching (N) {
+            let solution = null;
+
+            function solve(row, currentCols) {
+                if (row === N) {
+                    solution = currentCols.map((c, r) => ({ r, c }));
+                    return true;
+                }
+
+                const cols = Array.from({ length: N }, (_, i) => i).sort(() => Math.random() - 0.5);
+
+                for (let c of cols) {
+                    let valid = true;
+                    if (row > 0 && Math.abs(c - currentCols[row - 1]) <= 1) {
+                        valid = false;
+                    }
+                    if (valid) {
+                        currentCols.push(c);
+                        if (solve(row + 1, currentCols)) return true;
+                        currentCols.pop();
+                    }
+                }
+                return false;
+            }
+
+            for (let attempts = 0; attempts < 50; attempts++) {
+                if (solve(0, [])) return solution;
+            }
+
+            // Fallbacks for small N
+            if (N === 4) return [{r:0,c:1},{r:1,c:3},{r:2,c:0},{r:3,c:2}];
+            if (N === 5) return [{r:0,c:0},{r:1,c:3},{r:2,c:1},{r:3,c:4},{r:4,c:2}];
+            return Array.from({length: N}, (_, i) => ({ r: i, c: (i * 2) % N }));
+        }
+
+        function generateUniquePuzzle(N) {
+            let attempts = 0;
+
+            while (attempts < 400) {
+                attempts++;
+                const Q = findRandomNonTouching (N);
+                if (!Q) continue;
+
+                // Pick 1   to be in a 1-CELL COLOR REGION (the giveaway start box!)
+                const giveawayIndex = Math.floor(Math.random() * N);
+                const giveawayPos = Q[giveawayIndex];
+
+                const regions = Array.from({ length: N }, () => Array(N).fill(-1));
+
+                // Region 0 is strictly a 1-CELL REGION containing ONLY  Pos
+                regions[giveawayPos.r][giveawayPos.c] = 0;
+
+                // Assign seed cells for Regions 1..N-1 from remaining  
+                const other  = Q.filter((_, idx) => idx !== giveawayIndex);
+                for (let regId = 1; regId < N; regId++) {
+                    const q = other [regId - 1];
+                    regions[q.r][q.c] = regId;
+                }
+
+                // Grow regions 1..N-1 to cover all remaining N^2 - 1 cells
+                growRegions(regions, N);
+
+                // Verify STRICT UNIQUE SOLUTION and EXACTLY N DISTINCT REGIONS
+                if (verifyRegionsValid(regions, N) && countSolutions(regions, N) === 1) {
+                    return { N, regions, solution: Q, giveawayPos };
+                }
+            }
+
+            return generateFallbackUniquePuzzle(N);
+        }
+
+        function verifyRegionsValid(regions, N) {
+            const foundRegs = new Set();
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    if (regions[r][c] === -1) return false;
+                    foundRegs.add(regions[r][c]);
+                }
+            }
+            return foundRegs.size === N;
+        }
+
+        function growRegions(regions, N) {
+            let unassignedCount = N * N - N; // 1 assigned to giveaway region, N-1 seeds
+            const frontiers = Array.from({ length: N }, () => []);
+
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    const reg = regions[r][c];
+                    if (reg > 0) frontiers[reg].push({ r, c });
+                }
+            }
+
+            while (unassignedCount > 0) {
+                const activeRegions = [];
+                for (let reg = 1; reg < N; reg++) {
+                    const neighbors = [];
+                    for (let cell of frontiers[reg]) {
+                        const adj = [
+                            { r: cell.r - 1, c: cell.c },
+                            { r: cell.r + 1, c: cell.c },
+                            { r: cell.r, c: cell.c - 1 },
+                            { r: cell.r, c: cell.c + 1 }
+                        ];
+                        for (let a of adj) {
+                            if (a.r >= 0 && a.r < N && a.c >= 0 && a.c < N && regions[a.r][a.c] === -1) {
+                                neighbors.push(a);
+                            }
+                        }
+                    }
+                    if (neighbors.length > 0) {
+                        activeRegions.push({ reg, neighbors });
+                    }
+                }
+
+                if (activeRegions.length === 0) {
+                    for (let r = 0; r < N; r++) {
+                        for (let c = 0; c < N; c++) {
+                            if (regions[r][c] === -1) {
+                                regions[r][c] = 1;
+                                unassignedCount--;
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                const chosen = activeRegions[Math.floor(Math.random() * activeRegions.length)];
+                const newCell = chosen.neighbors[Math.floor(Math.random() * chosen.neighbors.length)];
+                regions[newCell.r][newCell.c] = chosen.reg;
+                frontiers[chosen.reg].push(newCell);
+                unassignedCount--;
+            }
+        }
+
+        function generateFallbackUniquePuzzle(N) {
+            const Q = findRandomNonTouching (N);
+            const giveawayPos = Q[0];
+            const regions = Array.from({ length: N }, () => Array(N).fill(-1));
+
+            regions[giveawayPos.r][giveawayPos.c] = 0;
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    if (regions[r][c] === -1) {
+                        regions[r][c] = (r + c) % (N - 1) + 1;
+                    }
+                }
+            }
+            return { N, regions, solution: Q,  Pos };
+        }
+
+        function validateBoardState() {
+            const N = gameState.N;
+            const board = gameState.board;
+            const regions = gameState.currentLevel.regions;
+
+            board.forEach(c => {
+                c.isConflict = false;
+                c.isBlocked = false;
+            });
+
+            const emojiCells = [];
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    const idx = r * N + c;
+                    if (board[idx].value === 'EMOJI') {
+                        emojiCells.push({ r, c, idx, region: regions[r][c] });
+                    }
+                }
+            }
+
+            // Direct Conflict Checking
+            let directConflictCount = 0;
+            for (let i = 0; i < emojiCells.length; i++) {
+                for (let j = i + 1; j < emojiCells.length; j++) {
+                    const a = emojiCells[i];
+                    const b = emojiCells[j];
+
+                    const sameRow = a.r === b.r;
+                    const sameCol = a.c === b.c;
+                    const sameRegion = a.region === b.region;
+                    const isAdjacentTouch = Math.abs(a.r - b.r) <= 1 && Math.abs(a.c - b.c) <= 1;
+
+                    if (sameRow || sameCol || sameRegion || isAdjacentTouch) {
+                        board[a.idx].isConflict = true;
+                        board[b.idx].isConflict = true;
+                        directConflictCount++;
+                    }
+                }
+            }
+
+            // Dead-End Region Forward Checking
+            let deadRegionCount = 0;
+            for (let regId = 0; regId < N; regId++) {
+                const hasEmoji = emojiCells.some(e => e.region === regId);
+
+                if (!hasEmoji) {
+                    let validSpotsInRegion = 0;
+                    for (let r = 0; r < N; r++) {
+                        for (let c = 0; c < N; c++) {
+                            if (regions[r][c] === regId) {
+                                const idx = r * N + c;
+                                if (board[idx].value === 'CROSS') continue;
+
+                                let cellValid = true;
+                                for (let placed of emojiCells) {
+                                    if (placed.r === r || placed.c === c || (Math.abs(placed.r - r) <= 1 && Math.abs(placed.c - c) <= 1)) {
+                                        cellValid = false;
+                                        break;
+                                    }
+                                }
+                                if (cellValid) validSpotsInRegion++;
+                            }
+                        }
+                    }
+
+                    if (validSpotsInRegion === 0) {
+                        deadRegionCount++;
+                        for (let r = 0; r < N; r++) {
+                            for (let c = 0; c < N; c++) {
+                                if (regions[r][c] === regId) {
+                                    board[r * N + c].isBlocked = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            document.getElementById('conflictCountDisplay').innerText = directConflictCount + deadRegionCount;
+
+            if (directConflictCount > 0) {
+                playSound('error');
+                updateMascot("Warning! Emojis clash in row, col, region, or touch! ⚠️", "shocked");
+            } else if (deadRegionCount > 0) {
+                playSound('error');
+                updateMascot("Dead-End Block! A color region has NO valid spaces left! ✖", "shocked");
+            } else if (emojiCells.length > 0) {
+                updateMascot("Great progress! Keep using Slide ✖ to eliminate options! ✨", "happy");
+            } else {
+                announceGiveawayTip();
+            }
+        }
+
+        function announceGiveawayTip() {
+            updateMascot(`💡 Start Tip: Find the 1-box region! It MUST be an Emoji   because every color needs one!`, "happy");
+        }
+
+        function renderBoard() {
+            const boardGrid = document.getElementById('boardGrid');
+            const N = gameState.N;
+            const regions = gameState.currentLevel.regions;
+            const giveawayPos = gameState.currentLevel.giveawayPos;
+
+            boardGrid.innerHTML = '';
+            boardGrid.style.gridTemplateColumns = `repeat(${N}, minmax(0, 1fr))`;
+
+            if (N >= 8) {
+                boardGrid.className = "board-grid-3d grid gap-1 p-2 rounded-2xl glass-panel shadow-2xl w-full max-w-[450px]";
+            } else if (N >= 6) {
+                boardGrid.className = "board-grid-3d grid gap-1.5 p-2.5 rounded-3xl glass-panel shadow-2xl w-full max-w-[440px]";
+            } else {
+                boardGrid.className = "board-grid-3d grid gap-2.5 p-3.5 rounded-3xl glass-panel shadow-2xl w-full max-w-[430px]";
+            }
+
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    const idx = r * N + c;
+                    const cell = gameState.board[idx];
+                    const regionIdx = regions[r][c];
+
+                    const tile = document.createElement('div');
+                    tile.dataset.r = r;
+                    tile.dataset.c = c;
+                    tile.dataset.idx = idx;
+
+                    let tileClasses = "emoji-tile aspect-square rounded-2xl flex items-center justify-center font-bold text-lg sm:text-2xl transition select-none border border-white/20 cursor-pointer ";
+                    tileClasses += `region-${regionIdx % 9} `;
+
+                    if (cell.isConflict) {
+                        tileClasses += "conflict ";
+                    } else if (cell.isBlocked) {
+                        tileClasses += "blocked-region ";
+                    } else if (r === giveawayPos.r && c === giveawayPos.c && gameState.board.filter(b=>b.value==='EMOJI').length === 0) {
+                        tileClasses += "giveaway-region ";
+                    }
+
+                    tile.className = tileClasses;
+
+                    if (cell.value === 'EMOJI') {
+                        tile.innerHTML = `<span class="pop-in">${cell.emoji || gameState.selectedEmoji}</span>`;
+                    } else if (cell.value === 'CROSS') {
+                        tile.innerHTML = `<span class="text-black font-black text-base sm:text-xl drop-shadow-[0_1px_1px_rgba(255,255,255,0.3)]">✖</span>`;
+                    } else if (r === giveawayPos.r && c === giveawayPos.c && gameState.board.filter(b=>b.value==='EMOJI').length === 0) {
+                        tile.innerHTML = `<span class="text-xs text-amber-950 font-extrabold bg-amber-300/80 px-1 rounded-md shadow-sm"></span>`;
+                    } else {
+                        tile.innerHTML = '';
+                    }
+
+                    boardGrid.appendChild(tile);
+                }
+            }
+
+            const placedCount = gameState.board.filter(b => b.value === 'EMOJI').length;
+            document.getElementById('emojiPlacedDisplay').innerText = `${placedCount} / ${N}`;
+            document.getElementById('boardSizeBadge').innerText = `${N}x${N} Grid`;
+            document.getElementById('regionRulesBadge').innerText = `${N} Color Regions`;
+        }
+
+        function setupDragAndSlideInteractions() {
+            const boardGrid = document.getElementById('boardGrid');
+            let lastTapTime = 0;
+            let lastTapIdx = null;
+
+            function getCellFromPoint(x, y) {
+                const el = document.elementFromPoint(x, y);
+                if (!el) return null;
+                const tile = el.closest('.emoji-tile');
+                if (!tile) return null;
+                return {
+                    r: parseInt(tile.dataset.r),
+                    c: parseInt(tile.dataset.c),
+                    idx: parseInt(tile.dataset.idx),
+                    tile: tile
+                };
+            }
+
+            function processCellInteraction(cellData, isStart = false) {
+                if (!cellData) return;
+                const { idx, tile } = cellData;
+
+                if (gameState.dragLastCellIdx === idx && !isStart) return;
+                gameState.dragLastCellIdx = idx;
+
+                const cell = gameState.board[idx];
+
+                if (isStart) pushHistory();
+
+                const now = Date.now();
+                const isDoubleTap = isStart && (now - lastTapTime < 300) && (lastTapIdx === idx);
+
+                if (isStart) {
+                    if (isDoubleTap) {
+                        lastTapTime = 0;
+                        lastTapIdx = null;
+                    } else {
+                        lastTapTime = now;
+                        lastTapIdx = idx;
+                    }
+                }
+
+                if (isDoubleTap) {
+                    // Double tap always toggles/places Emoji
+                    cell.value = cell.value === 'EMOJI' ? 'EMPTY' : 'EMOJI';
+                    cell.emoji = gameState.selectedEmoji;
+                    playSound('pop');
+                } else if (gameState.activeTool === 'emoji') {
+                    if (isStart) {
+                        cell.value = cell.value === 'EMOJI' ? 'EMPTY' : 'EMOJI';
+                        cell.emoji = gameState.selectedEmoji;
+                        playSound('pop');
+                    }
+                } else if (gameState.activeTool === 'cross') {
+                    if (isStart) {
+                        gameState.dragTargetValue = cell.value === 'CROSS' ? 'EMPTY' : 'CROSS';
+                    }
+                    cell.value = gameState.dragTargetValue;
+                    playSound('cross');
+                    tile.classList.add('drag-active');
+                    setTimeout(() => tile.classList.remove('drag-active'), 150);
+                } else if (gameState.activeTool === 'erase') {
+                    cell.value = 'EMPTY';
+                    playSound('pop');
+                    tile.classList.add('drag-active');
+                    setTimeout(() => tile.classList.remove('drag-active'), 150);
+                }
+
+                validateBoardState();
+                renderBoard();
+                checkVictory();
+            }
+
+            boardGrid.addEventListener('pointerdown', (e) => {
+                gameState.isDragging = true;
+                gameState.dragLastCellIdx = null;
+                const cellData = getCellFromPoint(e.clientX, e.clientY);
+                if (cellData) processCellInteraction(cellData, true);
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!gameState.isDragging) return;
+                const cellData = getCellFromPoint(e.clientX, e.clientY);
+                if (cellData) processCellInteraction(cellData, false);
+            });
+
+            window.addEventListener('pointerup', () => {
+                gameState.isDragging = false;
+                gameState.dragLastCellIdx = null;
+            });
+
+            window.addEventListener('pointercancel', () => {
+                gameState.isDragging = false;
+                gameState.dragLastCellIdx = null;
+            });
+        }
+
+        function pushHistory() {
+            gameState.history.push(JSON.stringify(gameState.board));
+            if (gameState.history.length > 25) gameState.history.shift();
+            gameState.redoStack = [];
+        }
+
+        function undo() {
+            if (gameState.history.length === 0) return;
+            gameState.redoStack.push(JSON.stringify(gameState.board));
+            const prev = gameState.history.pop();
+            gameState.board = JSON.parse(prev);
+            playSound('pop');
+            validateBoardState();
+            renderBoard();
+        }
+
+        function redo() {
+            if (gameState.redoStack.length === 0) return;
+            gameState.history.push(JSON.stringify(gameState.board));
+            const next = gameState.redoStack.pop();
+            gameState.board = JSON.parse(next);
+            playSound('pop');
+            validateBoardState();
+            renderBoard();
+        }
+
+        /**
+         * FIXED RETRY / RESET FUNCTION
+         * Clears placed emojis and X marks, strictly preserving the EXACT SAME level layout!
+         */
+        function resetCurrentLevel() {
+            pushHistory();
+            gameState.board = Array.from({ length: gameState.N * gameState.N }, () => ({
+                value: 'EMPTY',
+                isConflict: false,
+                isBlocked: false,
+                emoji: gameState.selectedEmoji
+            }));
+            playSound('pop');
+            validateBoardState();
+            renderBoard();
+            updateMascot("Level reset! The layout remains identical — give it another try! 🔄", "happy");
+        }
+
+        function highlightGiveawayPoint() {
+            const pos = gameState.currentLevel.giveawayPos;
+            playSound('win');
+            updateMascot(`💡 Bazzarn said Start at Row ${pos.r + 1}, Col ${pos.c + 1}! It's a 1-box giveaway!`, "love");
+            renderBoard();
+        }
+
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function burstConfetti() {
+            particles = [];
+            const colors = ['#f72585', '#4cc9f0', '#7209b7', '#ffb703', '#06d6a0'];
+            for (let i = 0; i < 90; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.7) * 18,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rot: Math.random() * 360,
+                    vRot: (Math.random() - 0.5) * 12
+                });
+            }
+            animateParticles();
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.45;
+                p.rot += p.vRot;
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate((p.rot * Math.PI) / 180);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                ctx.restore();
+            });
+
+            particles = particles.filter(p => p.y < canvas.height);
+            if (particles.length > 0) {
+                requestAnimationFrame(animateParticles);
+            }
+        }
+
+        function updateMascot(text, mood = "happy") {
+            const speech = document.getElementById('mascotSpeech');
+            const avatar = document.getElementById('mascotAvatar');
+            speech.innerText = text;
+
+            if (mood === 'shocked') avatar.innerText = '🙀';
+            else if (mood === 'love') avatar.innerText = '🤩';
+            else if (mood === 'win') avatar.innerText = '🥳';
+            else avatar.innerText = gameState.selectedEmoji;
+        }
+
+        function startTimer() {
+            clearInterval(gameState.timerInterval);
+            gameState.timerSeconds = 0;
+            updateTimerDisplay();
+            gameState.timerInterval = setInterval(() => {
+                gameState.timerSeconds++;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const mins = String(Math.floor(gameState.timerSeconds / 60)).padStart(2, '0');
+            const secs = String(gameState.timerSeconds % 60).padStart(2, '0');
+            document.getElementById('gameTimerDisplay').innerText = `${mins}:${secs}`;
+        }
+
+        function checkVictory() {
+            const N = gameState.N;
+            const placedCount = gameState.board.filter(c => c.value === 'EMOJI').length;
+            const hasConflict = gameState.board.some(c => c.isConflict || c.isBlocked);
+
+            if (placedCount === N && !hasConflict) {
+                triggerVictory();
+            }
+        }
+
+        function triggerVictory() {
+            clearInterval(gameState.timerInterval);
+            playSound('win');
+            burstConfetti();
+
+            gameState.stars += 3;
+            updateStarDisplays();
+
+            document.getElementById('vicTimeText').innerText = document.getElementById('gameTimerDisplay').innerText;
+            document.getElementById('victoryModal').classList.remove('hidden');
+            updateMascot("Masterful logic! You solved the puzzle! 👑🎉", "win");
+
+            saveLocalStorage();
+        }
+
+        function loadLevel(levelIdx, N = 5) {
+            gameState.N = N;
+            gameState.levelIndex = levelIdx;
+            gameState.history = [];
+            gameState.redoStack = [];
+
+            document.getElementById('currentLevelTitle').innerText = `Level ${levelIdx + 1} (${N}x${N})`;
+
+            // Generate guaranteed unique puzzle with 1-box   starting point
+            gameState.currentLevel = generateUniquePuzzle(N);
+
+            gameState.board = Array.from({ length: N * N }, () => ({
+                value: 'EMPTY',
+                isConflict: false,
+                isBlocked: false,
+                emoji: gameState.selectedEmoji
+            }));
+
+            startTimer();
+            validateBoardState();
+            renderBoard();
+        }
+
+        function renderShopGrid() {
+            const container = document.getElementById('shopEmojiGrid');
+            container.innerHTML = '';
+
+            EMOJI_CATALOG.forEach(item => {
+                const isUnlocked = gameState.unlockedEmojis.includes(item.emoji);
+                const isEquipped = gameState.selectedEmoji === item.emoji;
+
+                const card = document.createElement('div');
+                card.className = "glass-panel p-3 rounded-2xl flex flex-col items-center justify-between text-center border border-pink-500/20";
+                card.innerHTML = `
+                    <div class="text-3xl mb-1">${item.emoji}</div>
+                    <div class="text-[11px] font-bold text-slate-200 mb-2">${item.name}</div>
+                    ${
+                        isEquipped 
+                        ? `<span class="bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[10px] px-2.5 py-1 rounded-full font-bold">Equipped</span>`
+                        : isUnlocked 
+                        ? `<button class="equip-btn bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 text-[10px] px-2.5 py-1 rounded-full font-bold transition">Equip</button>`
+                        : `<button class="buy-btn bg-amber-400 text-slate-950 hover:bg-amber-300 text-[10px] px-2.5 py-1 rounded-full font-bold transition flex items-center space-x-1">
+                            <span>Unlock</span> <span>${item.price}⭐</span>
+                           </button>`
+                    }
+                `;
+
+                if (!isEquipped && isUnlocked) {
+                    card.querySelector('.equip-btn').addEventListener('click', () => {
+                        gameState.selectedEmoji = item.emoji;
+                        document.getElementById('selectedEmojiToolIcon').innerText = item.emoji;
+                        document.getElementById('activeThemeIcon').innerText = item.emoji;
+                        renderShopGrid();
+                        renderBoard();
+                        playSound('pop');
+                        saveLocalStorage();
+                    });
+                } else if (!isUnlocked) {
+                    card.querySelector('.buy-btn').addEventListener('click', () => {
+                        if (gameState.stars >= item.price) {
+                            gameState.stars -= item.price;
+                            gameState.unlockedEmojis.push(item.emoji);
+                            gameState.selectedEmoji = item.emoji;
+                            document.getElementById('selectedEmojiToolIcon').innerText = item.emoji;
+                            document.getElementById('activeThemeIcon').innerText = item.emoji;
+                            updateStarDisplays();
+                            renderShopGrid();
+                            renderBoard();
+                            playSound('win');
+                            saveLocalStorage();
+                        } else {
+                            playSound('error');
+                        }
+                    });
+                }
+
+                container.appendChild(card);
+            });
+        }
+
+        function renderLevelCards() {
+            const container = document.getElementById('levelGridContainer');
+            container.innerHTML = '';
+
+            for (let i = 0; i < 12; i++) {
+                const btn = document.createElement('button');
+                btn.className = `glass-btn py-2.5 rounded-2xl flex flex-col items-center justify-center font-bold transition ${
+                    i === gameState.levelIndex ? 'border-2 border-cyan-400 bg-cyan-500/20' : ''
+                }`;
+                btn.innerHTML = `
+                    <span class="text-[9px] text-cyan-300">PUZZLE</span>
+                    <span class="text-sm text-slate-100">${i + 1}</span>
+                    <span class="text-[10px] text-amber-400">⭐⭐⭐</span>
+                `;
+                btn.addEventListener('click', () => {
+                    loadLevel(i, gameState.N);
+                    document.getElementById('levelModal').classList.add('hidden');
+                });
+                container.appendChild(btn);
+            }
+        }
+
+        function updateStarDisplays() {
+            document.getElementById('starCounterDisplay').innerText = gameState.stars;
+            document.getElementById('shopStarCounter').innerText = gameState.stars;
+        }
+
+        function saveLocalStorage() {
+            const data = {
+                stars: gameState.stars,
+                unlockedEmojis: gameState.unlockedEmojis,
+                selectedEmoji: gameState.selectedEmoji
+            };
+            localStorage.setItem('emoji_ _3d_save', JSON.stringify(data));
+        }
+
+        function loadLocalStorage() {
+            const saved = localStorage.getItem('emoji_ _3d_save');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    gameState.stars = parsed.stars || 0;
+                    gameState.unlockedEmojis = parsed.unlockedEmojis || ['😎', '👑', '🤩'];
+                    gameState.selectedEmoji = parsed.selectedEmoji || '😎';
+                    document.getElementById('selectedEmojiToolIcon').innerText = gameState.selectedEmoji;
+                    document.getElementById('activeThemeIcon').innerText = gameState.selectedEmoji;
+                } catch(e) {}
+            }
+            updateStarDisplays();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadLocalStorage();
+            setupDragAndSlideInteractions();
+
+            // 3D Perspective Toggle
+            const toggle3DBtn = document.getElementById('toggle3DBtn');
+            const boardViewport = document.getElementById('boardViewport');
+            toggle3DBtn.addEventListener('click', () => {
+                gameState.is3D = !gameState.is3D;
+                if (gameState.is3D) {
+                    boardViewport.classList.add('iso-mode');
+                    document.getElementById('perspectiveIcon').className = 'fa-solid fa-cube text-base sm:text-lg';
+                } else {
+                    boardViewport.classList.remove('iso-mode');
+                    document.getElementById('perspectiveIcon').className = 'fa-solid fa-square text-base sm:text-lg';
+                }
+                playSound('pop');
+            });
+
+            // Mute Toggle
+            document.getElementById('toggleMuteBtn').addEventListener('click', () => {
+                gameState.isMuted = !gameState.isMuted;
+                document.getElementById('muteIcon').className = gameState.isMuted 
+                    ? "fa-solid fa-volume-xmark text-base sm:text-lg text-rose-400" 
+                    : "fa-solid fa-volume-high text-base sm:text-lg text-slate-300";
+            });
+
+            // Tool Switch Buttons
+            const toolEmojiBtn = document.getElementById('toolEmojiBtn');
+            const toolCrossBtn = document.getElementById('toolCrossBtn');
+            const toolEraseBtn = document.getElementById('toolEraseBtn');
+
+            function setActiveTool(tool) {
+                gameState.activeTool = tool;
+                [toolEmojiBtn, toolCrossBtn, toolEraseBtn].forEach(b => {
+                    b.className = "flex-1 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 text-slate-300 hover:bg-white/10 transition";
+                });
+
+                if (tool === 'emoji') {
+                    toolEmojiBtn.className = "flex-1 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg transition";
+                } else if (tool === 'cross') {
+                    toolCrossBtn.className = "flex-1 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg transition";
+                } else if (tool === 'erase') {
+                    toolEraseBtn.className = "flex-1 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 bg-gradient-to-r from-slate-600 to-slate-700 text-white shadow-lg transition";
+                }
+                playSound('pop');
+            }
+
+            toolEmojiBtn.addEventListener('click', () => setActiveTool('emoji'));
+            toolCrossBtn.addEventListener('click', () => setActiveTool('cross'));
+            toolEraseBtn.addEventListener('click', () => setActiveTool('erase'));
+
+            // Secondary Toolbar Action Listeners
+            document.getElementById('undoBtn').addEventListener('click', undo);
+            document.getElementById('redoBtn').addEventListener('click', redo);
+            document.getElementById('giveawayHelperBtn').addEventListener('click', highlightGiveawayPoint);
+            document.getElementById('resetBtn').addEventListener('click', resetCurrentLevel);
+
+            // Mascot Pet Interaction
+            document.getElementById('mascotAvatar').addEventListener('click', highlightGiveawayPoint);
+
+            // Modal Controls
+            const levelModal = document.getElementById('levelModal');
+            document.getElementById('openLevelModalBtn').addEventListener('click', () => {
+                renderLevelCards();
+                levelModal.classList.remove('hidden');
+            });
+            document.getElementById('closeLevelModalBtn').addEventListener('click', () => levelModal.classList.add('hidden'));
+
+            // Grid Dimension Switches (4x4 to 8x8)
+            document.querySelectorAll('.grid-size-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.grid-size-btn').forEach(b => {
+                        b.className = "grid-size-btn py-2 rounded-xl text-xs font-bold border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10";
+                    });
+                    e.currentTarget.className = "grid-size-btn py-2 rounded-xl text-xs font-bold border border-cyan-500/40 bg-cyan-500/20 text-cyan-300";
+                    const newN = parseInt(e.currentTarget.dataset.size);
+                    loadLevel(0, newN);
+                    renderLevelCards();
+                });
+            });
+
+            document.getElementById('generateUniqueBtn').addEventListener('click', () => {
+                const randomIdx = Math.floor(Math.random() * 100);
+                loadLevel(randomIdx, gameState.N);
+                levelModal.classList.add('hidden');
+            });
+
+            // Shop Modal Controls
+            const shopModal = document.getElementById('shopModal');
+            document.getElementById('openShopBtn').addEventListener('click', () => {
+                renderShopGrid();
+                shopModal.classList.remove('hidden');
+            });
+            document.getElementById('closeShopModalBtn').addEventListener('click', () => shopModal.classList.add('hidden'));
+
+            // Victory Controls
+            document.getElementById('vicReplayBtn').addEventListener('click', () => {
+                document.getElementById('victoryModal').classList.add('hidden');
+                resetCurrentLevel();
+            });
+
+            document.getElementById('vicNextBtn').addEventListener('click', () => {
+                document.getElementById('victoryModal').classList.add('hidden');
+                loadLevel(gameState.levelIndex + 1, gameState.N);
+            });
+
+            // Initial Launch
+            loadLevel(0, 5);
+        });
+    </script>
+</body>
+</html>
